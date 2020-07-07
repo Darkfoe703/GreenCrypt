@@ -1,0 +1,25 @@
+# Carpetas a ignorar
+/bin
+/lib
+
+# carpeta con archivos de prueba
+/folder/*
+folder/
+
+# Archivos a ignorar en el proyecto
+*.bin
+*.cfg
+*.sh
+
+*.pyc
+*.log
+*.tmp
+
+# una ext. propia
+*.marco
+# ext. de archivos encriptados
+*.GCF
+
+BCrypt.py
+Clip1
+testfile
