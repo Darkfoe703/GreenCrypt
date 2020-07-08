@@ -1,34 +1,14 @@
-import os
-import sys
-import time
+import os, sys, time
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Protocol.KDF import PBKDF2
 
-def full_path(element):
-    fullpath = (os.path.abspath(element))
-    print(fullpath)
-    return(fullpath)
+def ruta():
+    full_ruta = (os.path.abspath(input()))
+    print(full_ruta)
+    return(full_ruta)
 
-def dir_or_file(element):
-    aux = os.path.isfile(element)
-
-    if aux == True:
-        print ("Is a file")
-        return "archivo"
-    else:
-        print ("Is a directory")
-        return (os.path.abspath(element))
-
-def scan_dir(directory):
-    list_files = []
-    for dirpath, dirs, files in os.walk(directory):
-            for filename in files:
-                        elementos.append(os.path.join(dirpath,filename))
-                        print(list_files)
-    pass
-
-def read_file(file):
+def abrir(file):
     try:
         file_in = open(file,"rb")
         content = file_in.read()
@@ -37,11 +17,18 @@ def read_file(file):
         return(content)
     except OSError as err:
         print("OS error: {0}".format(err))
-        return("")
+        return("carpeta")
     except:
         print("Unexpected error:", sys.exc_info()[0])
         return("")
-    pass
+
+def scan(ruta):
+    direccion = ruta
+    elementos = []
+    for dirpath, dirs, files in os.walk(direccion):
+            for filename in files:
+                        elementos.append(os.path.join(dirpath,filename))
+                        print(elementos)
 
 def keygen():
     # Salt you generated
@@ -53,11 +40,12 @@ def keygen():
     print(key)
     return(key)
 
-def encrypt(secret, key):
+
+def encriptar(secreto, clave):
     # dato a encriptar
-    data0 = secret
+    data0 = secreto
     # clave, en este caso de 32bytes para AES256
-        # key = clave
+    key = clave
     # encabezado del archivo encriptado (completado con cosas randoms para que llegue a 16)
     # es como una firma de integridad manual
     header = b"BlackCrypt\xa8\xb7:\xf5\x83\xd7"
@@ -73,7 +61,7 @@ def encrypt(secret, key):
     print(final)
     return(final)
 
-def write_file(elementos):
+def escribir(elementos):
     file_out = open("encrypted.bin", "wb")
     #Construcción del archivo encriptado:
     #encabezado, número de un uso, tag de verificación, dato cifrado
@@ -81,9 +69,18 @@ def write_file(elementos):
     file_out.close()
 
 def main():
-    a = full_path(input())
-    dir_or_file(a)
-    pass
+    archivo = ruta()
+    contenido = abrir(archivo)
+
+    if contenido == "carpeta":
+        scan(archivo)
+        pass
+    else:
+        pass
+
+    #clave = keygen()
+    #secreto = encriptar(contenido, clave)
+    #escribir(secreto)
 
 if __name__ == '__main__':
     main()
