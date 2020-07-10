@@ -15,18 +15,18 @@ def dir_or_file(element):
 
     if aux == True:
         print ("Is a file")
-        return "archivo"
+        return "file"
     else:
         print ("Is a directory")
-        return (os.path.abspath(element))
+        #return (os.path.abspath(element))
+        return("folder")
 
 def scan_dir(directory):
     list_files = []
     for dirpath, dirs, files in os.walk(directory):
             for filename in files:
-                        elementos.append(os.path.join(dirpath,filename))
+                        list_files.append(os.path.join(dirpath,filename))
                         print(list_files)
-    pass
 
 def read_file(file):
     try:
@@ -41,7 +41,6 @@ def read_file(file):
     except:
         print("Unexpected error:", sys.exc_info()[0])
         return("")
-    pass
 
 def keygen():
     # Salt you generated
@@ -62,27 +61,36 @@ def encrypt(secret, key):
     # es como una firma de integridad manual
     header = b"BlackCrypt\xa8\xb7:\xf5\x83\xd7"
     # construcción del cifrador AES, con el modo EAX
-    cifrador = AES.new(key, AES.MODE_EAX)
+    cipher = AES.new(key, AES.MODE_EAX)
     # Encriptación usando el cifrador, y generación del tag que verificará
     # la integridad el archivo cifrado
-    dataX, tag = cifrador.encrypt_and_digest(data0)
+    dataX, tag = cipher.encrypt_and_digest(data0)
     # Generación del numero de un uso, que junto con la key
     # nos desencriptaran el archivo
-    nonce = cifrador.nonce
+    nonce = cipher.nonce
     final = {'header' : header, 'nonce' : nonce, 'tag' : tag, 'dato' : dataX}
     print(final)
     return(final)
 
-def write_file(elementos):
-    file_out = open("encrypted.bin", "wb")
+def write_file(parts, name):
+    file_out = open(name + ".aes", "wb")
     #Construcción del archivo encriptado:
     #encabezado, número de un uso, tag de verificación, dato cifrado
-    [ file_out.write(x) for x in (elementos.values()) ]
+    [ file_out.write(x) for x in (parts.values()) ]
     file_out.close()
 
+def del_orginal():
+    pass
+
 def main():
-    a = full_path(input())
-    dir_or_file(a)
+    path = full_path(input())
+    type = dir_or_file(path)
+     # ==== If is file, encrypt
+        # if not, scan files in folder and subfolders
+    if type == "folder":
+        scan_dir(path)
+    else:
+        pass
     pass
 
 if __name__ == '__main__':
