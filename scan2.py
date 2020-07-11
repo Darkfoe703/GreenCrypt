@@ -12,7 +12,7 @@ def main():
 def select_files(elemento):
     # https://github.com/Darkfoe703/Cypher/blob/master/cyphermain.py
 
-    ext = [".txt"]
+    ext = [".aes"]
     files_to_enc = []
 
     direccion = elemento
@@ -26,6 +26,7 @@ def select_files(elemento):
 def uno_por_uno(lista):
     for x in range(len(lista)):
         print(lista[x])
+        os.remove(lista[x])
 
 if __name__ == '__main__':
     main()

