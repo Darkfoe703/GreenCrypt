@@ -5,6 +5,7 @@
 # carpeta con archivos de prueba
 /folder/*
 folder/
+/folder2
 
 # Archivos a ignorar en el proyecto
 *.bin
