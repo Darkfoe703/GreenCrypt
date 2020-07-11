@@ -17,7 +17,7 @@ def dir_or_file(element):
         print ("Is a file")
         return "file"
     else:
-        print ("Is a directory")
+        print ("Is a folder")
         #return (os.path.abspath(element))
         return("folder")
 
@@ -26,7 +26,12 @@ def scan_dir(directory):
     for dirpath, dirs, files in os.walk(directory):
             for filename in files:
                         list_files.append(os.path.join(dirpath,filename))
-                        print(list_files)
+                        #print(list_files)
+    return(list_files)
+
+def one_by_one(list):
+    for x in range(len(list)):
+        print(list[x])
 
 def read_file(file):
     try:
@@ -59,7 +64,7 @@ def encrypt(secret, key):
         # key = clave
     # encabezado del archivo encriptado (completado con cosas randoms para que llegue a 16)
     # es como una firma de integridad manual
-    header = b"BlackCrypt\xa8\xb7:\xf5\x83\xd7"
+    header = b"GreenCrypt\xa8\xb7:\xf5\x83\xd7"
     # construcción del cifrador AES, con el modo EAX
     cipher = AES.new(key, AES.MODE_EAX)
     # Encriptación usando el cifrador, y generación del tag que verificará
@@ -88,9 +93,18 @@ def main():
      # ==== If is file, encrypt
         # if not, scan files in folder and subfolders
     if type == "folder":
-        scan_dir(path)
+        files = scan_dir(path)
+
+        x = one_by_one(files)
+        #print(x)
     else:
+        content = read_file(path)
+        key = keygen()
+        xxdataxx = encrypt(content, key)
+        write_file(xxdataxx, path)
         pass
+
+    #print(files)
     pass
 
 if __name__ == '__main__':

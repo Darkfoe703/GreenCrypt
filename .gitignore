@@ -20,7 +20,9 @@ folder/
 *.marco
 # ext. de archivos encriptados
 *.GCF
+*aes
 
 BCrypt.py
 Clip1
 testfile
+testfile (copia)
