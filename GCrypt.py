@@ -5,7 +5,25 @@ from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Protocol.KDF import PBKDF2
 
-def full_path(element):
+def banner_ascii():
+    BGREEN = "\033[1;32m" # Bright Green Text
+    ENDColor = "\033[m"
+    print(BGREEN + """
+   ____                      ____                  _
+  / ___|_ __ ___  ___ _ __  / ___|_ __ _   _ _ __ | |_
+ | |  _| '__/ _ \/ _ | '_ \| |   | '__| | | | '_ \| __|
+ | |_| | | |  __|  __| | | | |___| |  | |_| | |_) | |_
+  \____|_|  \___|\___|_| |_|\____|_|   \__, | .__/ \__|
+                                       |___/|_|
+""" + ENDColor)
+
+def select_action():
+    print("1) Encrypt\n" + "2) Decrypt\n")
+    input("Select: ")
+    pass
+
+def full_path():
+    element = input("Select a file or folder: ")
     fullpath = (os.path.abspath(element))
     print(fullpath)
     return(fullpath)
@@ -29,8 +47,7 @@ def scan_dir(directory):
                         #print(list_files)
     return(list_files)
 
-def one_by_one(passw, list):
-    key = passw
+def one_by_one(key, list):
     for file in range(len(list)):
         print(list[file])
         content = read_file(list[file])
@@ -52,10 +69,10 @@ def read_file(file):
         return("")
 
 def keygen():
+    # Password provided by the user, can use input() to get this
+    password = input("Password: ")
     # Salt you generated
     salt = b'\xc5\x16\xf9}\x9f\x02\x12\xa5@=`.\x9f\x1bN\x87\x8av\x07\xe5\xac\xe2N\xd0\x85\xb1-\x85\x81+\t\xc9'
-    # Password provided by the user, can use input() to get this
-    password = input()
     # Your key that you can encrypt with
     key = PBKDF2(password, salt, dkLen=32)
     print(key)
@@ -91,8 +108,15 @@ def write_file(parts, name):
 def del_orginal(file):
     os.remove(file)
 
+def decrytp():
+    pass
+
+
+
 def main():
-    path = full_path(input())
+    banner_ascii()
+    select_action()
+    path = full_path()
     type = dir_or_file(path)
      # ==== If is file, encrypt
         # if not, scan files in folder and subfolders
@@ -104,7 +128,7 @@ def main():
     else:
         key = keygen()
         content = read_file(path)
-        xxdataxx = encrypt(content, key)
+        xxdataxx = encrypt(key, content)
         write_file(xxdataxx, path)
         del_orginal(path)
         pass
