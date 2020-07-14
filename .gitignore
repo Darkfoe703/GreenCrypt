@@ -11,6 +11,10 @@ folder/
 *.bin
 *.cfg
 *.sh
+*.doc
+*.xls
+*.mp3
+*.pdf
 
 *.pyc
 *.log
@@ -20,7 +24,7 @@ folder/
 *.marco
 # ext. de archivos encriptados
 *.GCF
-*aes
+*.aes
 
 BCrypt.py
 Clip1
