@@ -6,6 +6,7 @@
 /folder/*
 folder/
 /folder2
+/devs
 
 # Archivos a ignorar en el proyecto
 *.bin
