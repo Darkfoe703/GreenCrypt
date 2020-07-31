@@ -1,1 +1,1 @@
- Encriptación con AES 256, modo AEX 
+ Encriptación con AES 256, modo EAX 
