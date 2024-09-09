@@ -20,6 +20,8 @@ folder/
 *.pyc
 *.log
 *.tmp
+*.sublime-project
+*.sublime-workspace
 
 # una ext. propia
 *.marco
