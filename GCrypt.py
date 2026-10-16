@@ -201,8 +201,10 @@ def decrypt_target(key: bytes, target: str, delete_original: bool = False):
 
 def interactive_mode():
     banner()
-    print("  1) Encrypt\n  2) Decrypt\n")
-    choice = input("Select [1/2]: ").strip()
+    print("  1) Encrypt\n  2) Decrypt\n  3) Exit")
+    choice = input("Select [1/2/3]: ").strip()
+    if choice == "3":
+        sys.exit(0)
     if choice not in ("1", "2"):
         print("[!] Invalid choice.")
         sys.exit(1)
