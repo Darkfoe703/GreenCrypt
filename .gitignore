@@ -1,6 +1,8 @@
 # Carpetas a ignorar
 /bin
 /lib
+/pruebas
+
 
 # carpeta con archivos de prueba
 /folder/*
@@ -16,6 +18,8 @@ folder/
 *.xls
 *.mp3
 *.pdf
+*.TAG
+AGENTS.md
 
 *.pyc
 *.log
