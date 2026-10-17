@@ -12,6 +12,7 @@ CLI usage:
 
 File format (.aes):
   [16 bytes] magic header  -- b"GreenCrypt\xa8\xb7:\xf5\x83\xd7"
+  [16 bytes] salt          -- random per-file (PBKDF2 input)
   [16 bytes] AES-EAX nonce
   [16 bytes] authentication tag
   [n  bytes] ciphertext
@@ -21,17 +22,17 @@ import os
 import sys
 import argparse
 from Cryptodome.Cipher import AES
+from Cryptodome.Random import get_random_bytes
 from Cryptodome.Protocol.KDF import PBKDF2
+from Cryptodome.Hash import SHA256
 
 
 # -- Constants -----------------------------------------------------------------
 
-HEADER = b"GreenCrypt\xa8\xb7:\xf5\x83\xd7"   # 16-byte magic / integrity marker
-SALT   = (
-    b"\xc5\x16\xf9}\x9f\x02\x12\xa5@=`.\x9f\x1bN\x87"
-    b"\x8av\x07\xe5\xac\xe2N\xd0\x85\xb1-\x85\x81+\t\xc9"
-)
-EXT    = ".aes"
+HEADER          = b"GreenCrypt\xa8\xb7:\xf5\x83\xd7"  # 16-byte magic / integrity marker
+EXT             = ".aes"
+SALT_LEN        = 16    # bytes of random salt stored in the blob
+PBKDF2_ITER     = 200_000  # PBKDF2-SHA256 iteration count
 
 
 # -- Banner --------------------------------------------------------------------
@@ -51,9 +52,12 @@ def banner():
 
 # -- Key derivation ------------------------------------------------------------
 
-def derive_key(password: str) -> bytes:
-    """Derive a 32-byte AES-256 key from a password using PBKDF2-SHA1."""
-    return PBKDF2(password, SALT, dkLen=32)
+def derive_key(password: str, salt: bytes) -> bytes:
+    """
+    Derive a 32-byte AES-256 key from a password + salt.
+    Uses PBKDF2-HMAC-SHA256 with 200 000 iterations.
+    """
+    return PBKDF2(password, salt, dkLen=32, count=PBKDF2_ITER, hmac_hash_module=SHA256)
 
 
 def password_from_file(path: str) -> str:
@@ -101,36 +105,45 @@ def scan_dir(directory: str) -> list:
 
 # -- Crypto core ---------------------------------------------------------------
 
-def encrypt_bytes(key: bytes, plaintext: bytes) -> bytes:
+def encrypt_bytes(password: str, plaintext: bytes) -> bytes:
     """
     Encrypt plaintext with AES-256-EAX.
-    Returns a self-contained blob: header + nonce + tag + ciphertext.
+    Generates a fresh random salt per call, derives the key with
+    PBKDF2-SHA256 (200 000 iters), and returns a self-contained blob:
+
+      HEADER(16) | SALT(16) | NONCE(16) | TAG(16) | CIPHERTEXT
     """
+    salt   = get_random_bytes(SALT_LEN)
+    key    = derive_key(password, salt)
     cipher = AES.new(key, AES.MODE_EAX)
     ciphertext, tag = cipher.encrypt_and_digest(plaintext)
-    return HEADER + cipher.nonce + tag + ciphertext
+    return HEADER + salt + cipher.nonce + tag + ciphertext
 
 
-def decrypt_bytes(key: bytes, blob: bytes) -> bytes:
+def decrypt_bytes(password: str, blob: bytes) -> bytes:
     """
     Decrypt a GreenCrypt blob.
-    Raises ValueError on bad header or failed tag verification.
+    Extracts the per-file salt from blob[16:32], re-derives the key,
+    then verifies the tag and decrypts.
+    Raises ValueError on bad header or authentication failure.
     """
     if not blob.startswith(HEADER):
         raise ValueError("Not a GreenCrypt file (invalid header).")
-    nonce      = blob[16:32]
-    tag        = blob[32:48]
-    ciphertext = blob[48:]
+    salt       = blob[16:32]
+    nonce      = blob[32:48]
+    tag        = blob[48:64]
+    ciphertext = blob[64:]
+    key    = derive_key(password, salt)
     cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
     return cipher.decrypt_and_verify(ciphertext, tag)
 
 
 # -- High-level file operations ------------------------------------------------
 
-def encrypt_file(key: bytes, path: str, delete_original: bool = False) -> str:
+def encrypt_file(password: str, path: str, delete_original: bool = False) -> str:
     """Encrypt a single file -> writes <path>.aes next to original."""
     plaintext = read_bytes(path)
-    blob      = encrypt_bytes(key, plaintext)
+    blob      = encrypt_bytes(password, plaintext)
     out_path  = path + EXT
     write_bytes(out_path, blob)
     print(f"  [+] Encrypted  -> {out_path}")
@@ -140,11 +153,11 @@ def encrypt_file(key: bytes, path: str, delete_original: bool = False) -> str:
     return out_path
 
 
-def decrypt_file(key: bytes, path: str, delete_original: bool = False) -> str:
+def decrypt_file(password: str, path: str, delete_original: bool = False) -> str:
     """Decrypt a single .aes file -> restores original filename."""
     blob = read_bytes(path)
     try:
-        plaintext = decrypt_bytes(key, blob)
+        plaintext = decrypt_bytes(password, blob)
     except ValueError as e:
         print(f"  [!] {path}: {e}")
         sys.exit(1)
@@ -166,24 +179,24 @@ def decrypt_file(key: bytes, path: str, delete_original: bool = False) -> str:
     return out_path
 
 
-def encrypt_target(key: bytes, target: str, delete_original: bool = False):
+def encrypt_target(password: str, target: str, delete_original: bool = False):
     """Encrypt a file or every file inside a folder (recursive)."""
     if os.path.isfile(target):
-        encrypt_file(key, target, delete_original)
+        encrypt_file(password, target, delete_original)
     elif os.path.isdir(target):
         files = scan_dir(target)
         print(f"[*] Encrypting {len(files)} file(s) in '{target}' ...")
         for f in files:
-            encrypt_file(key, f, delete_original)
+            encrypt_file(password, f, delete_original)
     else:
         print(f"[!] Target '{target}' not found.")
         sys.exit(1)
 
 
-def decrypt_target(key: bytes, target: str, delete_original: bool = False):
+def decrypt_target(password: str, target: str, delete_original: bool = False):
     """Decrypt a .aes file or every .aes file inside a folder (recursive)."""
     if os.path.isfile(target):
-        decrypt_file(key, target, delete_original)
+        decrypt_file(password, target, delete_original)
     elif os.path.isdir(target):
         files = [f for f in scan_dir(target) if f.endswith(EXT)]
         if not files:
@@ -191,7 +204,7 @@ def decrypt_target(key: bytes, target: str, delete_original: bool = False):
             sys.exit(1)
         print(f"[*] Decrypting {len(files)} {EXT} file(s) in '{target}' ...")
         for f in files:
-            decrypt_file(key, f, delete_original)
+            decrypt_file(password, f, delete_original)
     else:
         print(f"[!] Target '{target}' not found.")
         sys.exit(1)
@@ -216,16 +229,15 @@ def interactive_mode():
         sys.exit(1)
 
     password = input("Password: ")
-    key = derive_key(password)
 
     answer = input("Delete original after processing? [y/N]: ").strip().lower()
     delete = answer == "y"
 
     print()
     if choice == "1":
-        encrypt_target(key, target, delete_original=delete)
+        encrypt_target(password, target, delete_original=delete)
     else:
-        decrypt_target(key, target, delete_original=delete)
+        decrypt_target(password, target, delete_original=delete)
 
 
 # -- CLI argument parser -------------------------------------------------------
@@ -312,13 +324,11 @@ def cli_mode(args):
     else:
         password = input("Password: ")
 
-    key = derive_key(password)
-
     print()
     if args.encrypt:
-        encrypt_target(key, target, delete_original=args.delete)
+        encrypt_target(password, target, delete_original=args.delete)
     else:
-        decrypt_target(key, target, delete_original=args.delete)
+        decrypt_target(password, target, delete_original=args.delete)
 
 
 # -- Entry point ---------------------------------------------------------------
