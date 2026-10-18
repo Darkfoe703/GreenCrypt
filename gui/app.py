@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QEvent
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -61,6 +61,13 @@ except ImportError:
 # Keep in sync with the default text defined in gui/main.ui
 DEFAULT_HINT = 'Drag files or folders here'
 
+# Folder that holds optional visual assets (logo, window icon).
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+
+# Icon file names tried, in order. PNG works at runtime on every OS; ICO is
+# handy on Windows and ICNS on macOS if you ship one.
+ICON_CANDIDATES = ("icon.png", "icon.ico", "icon.icns", "logo.png")
+
 # Drop-zone styling: a dark backdrop keeps the white hint readable even when
 # no logo image is available.
 DROP_STYLE = (
@@ -74,6 +81,38 @@ DROP_STYLE_ACTIVE = (
 
 # Maximum number of file names shown inside the drop area
 MAX_NAMES = 5
+
+
+def load_app_icon():
+    """Return the window/application icon, or None when no icon file exists.
+
+    Qt picks a suitable size from the file; a 256x256 PNG is a good default.
+    """
+    for name in ICON_CANDIDATES:
+        path = ASSETS_DIR / name
+        if path.is_file():
+            return QIcon(str(path))
+    return None
+
+
+def installed_desktop_file(app_id):
+    """Return the path of an installed ``<app_id>.desktop`` launcher, or None.
+
+    We only announce the app id to the desktop portal (setDesktopFileName)
+    when a matching launcher is really installed. Otherwise Wayland/Qt logs:
+
+        qt.qpa.services: Failed to register with host portal ...
+        "Could not register app ID: App info not found for 'greencrypt'"
+
+    Looks in $XDG_DATA_HOME/applications and $XDG_DATA_DIRS/applications.
+    """
+    filename = f"{app_id}.desktop"
+    data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    data_dirs = os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share"
+    for base in (data_home, *data_dirs.split(":")):
+        if base and (Path(base) / "applications" / filename).is_file():
+            return Path(base) / "applications" / filename
+    return None
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -113,8 +152,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _load_logo(self):
         """Load a logo into lblLogo if one exists; otherwise leave it empty."""
         candidates = [
-            Path(__file__).resolve().parent / "assets" / "logo.png",
-            Path(__file__).resolve().parent / "assets" / "logo.jpg",
+            ASSETS_DIR / "logo.png",
+            ASSETS_DIR / "logo.jpg",
             Path(__file__).resolve().parent / "logo.png",
         ]
         for path in candidates:
@@ -387,7 +426,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("GreenCrypt")
+    # Linux/KDE/Wayland: only announce the app id when a greencrypt.desktop
+    # launcher is installed, so the window groups with it and shows the right
+    # icon. Setting it without a launcher makes the portal log a warning.
+    if installed_desktop_file("greencrypt") is not None:
+        app.setDesktopFileName("greencrypt")
     app.setStyle("Fusion")  # consistent look across Linux/Windows
+
+    # Window icon: app.setWindowIcon covers every window and dialog by default.
+    icon = load_app_icon()
+    if icon is not None:
+        app.setWindowIcon(icon)
 
     window = MainWindow()
     window.show()
