@@ -10,17 +10,26 @@ CLI usage:
   python GCrypt.py -e -p "mypassword" --delete secret.txt
   python GCrypt.py                         <- interactive menu
 
-File format (.aes):
-  [16 bytes] magic header  -- b"GreenCrypt\xa8\xb7:\xf5\x83\xd7"
-  [16 bytes] salt          -- random per-file (PBKDF2 input)
+File format (.aes) v1:
+  [8 bytes]  magic       -- b"GrCrypt\x01"
+  [1 byte]   version     -- 0x01
+  [1 byte]   flags       -- bit 0: filename_in_aad
+  [6 bytes]  reserved    -- zeroes
+  [16 bytes] salt        -- random per-file (PBKDF2 input)
   [16 bytes] AES-EAX nonce
   [16 bytes] authentication tag
   [n  bytes] ciphertext
+
+Associated Data (AAD, authenticated but not encrypted):
+  [2 bytes]  filename_len (big-endian)
+  [n bytes]  filename (UTF-8)
 """
 
 import os
 import sys
 import argparse
+import struct
+from pathlib import Path
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Protocol.KDF import PBKDF2
@@ -29,10 +38,13 @@ from Cryptodome.Hash import SHA256
 
 # -- Constants -----------------------------------------------------------------
 
-HEADER          = b"GreenCrypt\xa8\xb7:\xf5\x83\xd7"  # 16-byte magic / integrity marker
+MAGIC           = b"GrCrypt\x01"   # 8 bytes
+CURRENT_VERSION = 1
+FLAG_FILENAME_AAD = 0x01           # bit 0: filename included in AAD
+HEADER_SIZE     = 16               # magic(8) + version(1) + flags(1) + reserved(6)
 EXT             = ".aes"
-SALT_LEN        = 16    # bytes of random salt stored in the blob
-PBKDF2_ITER     = 200_000  # PBKDF2-SHA256 iteration count
+SALT_LEN        = 16
+PBKDF2_ITER     = 200_000
 
 
 # -- Banner --------------------------------------------------------------------
@@ -76,13 +88,17 @@ def password_from_file(path: str) -> str:
 
 # -- Low-level I/O -------------------------------------------------------------
 
+class GreenCryptError(Exception):
+    """Base exception for GreenCrypt errors."""
+    pass
+
+
 def read_bytes(path: str) -> bytes:
     try:
         with open(path, "rb") as f:
             return f.read()
     except OSError as e:
-        print(f"[!] Cannot read '{path}': {e}")
-        sys.exit(1)
+        raise GreenCryptError(f"Cannot read '{path}': {e}") from e
 
 
 def write_bytes(path: str, data: bytes):
@@ -90,8 +106,7 @@ def write_bytes(path: str, data: bytes):
         with open(path, "wb") as f:
             f.write(data)
     except OSError as e:
-        print(f"[!] Cannot write '{path}': {e}")
-        sys.exit(1)
+        raise GreenCryptError(f"Cannot write '{path}': {e}") from e
 
 
 def scan_dir(directory: str) -> list:
@@ -105,36 +120,81 @@ def scan_dir(directory: str) -> list:
 
 # -- Crypto core ---------------------------------------------------------------
 
-def encrypt_bytes(password: str, plaintext: bytes) -> bytes:
+def _build_aad(filename: str) -> bytes:
+    """Build Associated Data: 2-byte length (big-endian) + UTF-8 filename."""
+    name_bytes = filename.encode("utf-8")
+    if len(name_bytes) > 65535:
+        raise ValueError("Filename too long for AAD")
+    return struct.pack(">H", len(name_bytes)) + name_bytes
+
+
+def _parse_aad(aad: bytes) -> str:
+    """Parse AAD and return filename."""
+    if len(aad) < 2:
+        raise ValueError("AAD too short")
+    name_len = struct.unpack(">H", aad[:2])[0]
+    if len(aad) != 2 + name_len:
+        raise ValueError("AAD length mismatch")
+    return aad[2:].decode("utf-8")
+
+
+def encrypt_bytes(password: str, plaintext: bytes, filename: str) -> bytes:
     """
     Encrypt plaintext with AES-256-EAX.
-    Generates a fresh random salt per call, derives the key with
-    PBKDF2-SHA256 (200 000 iters), and returns a self-contained blob:
+    Includes filename in AAD (authenticated but not encrypted).
+    Returns versioned blob:
 
-      HEADER(16) | SALT(16) | NONCE(16) | TAG(16) | CIPHERTEXT
+      MAGIC(8) | VER(1) | FLAGS(1) | RESERVED(6) | SALT(16) | NONCE(16) | TAG(16) | CIPHERTEXT
     """
-    salt   = get_random_bytes(SALT_LEN)
-    key    = derive_key(password, salt)
+    salt = get_random_bytes(SALT_LEN)
+    key = derive_key(password, salt)
+    
+    aad = _build_aad(filename)
     cipher = AES.new(key, AES.MODE_EAX)
+    cipher.update(aad)  # Include filename in authentication
     ciphertext, tag = cipher.encrypt_and_digest(plaintext)
-    return HEADER + salt + cipher.nonce + tag + ciphertext
+    
+    # Build versioned header
+    header = MAGIC + bytes([CURRENT_VERSION, FLAG_FILENAME_AAD]) + b"\x00" * 6
+    return header + salt + cipher.nonce + tag + ciphertext
 
 
-def decrypt_bytes(password: str, blob: bytes) -> bytes:
+def decrypt_bytes(password: str, blob: bytes, expected_filename: str | None = None) -> bytes:
     """
-    Decrypt a GreenCrypt blob.
-    Extracts the per-file salt from blob[16:32], re-derives the key,
-    then verifies the tag and decrypts.
-    Raises ValueError on bad header or authentication failure.
+    Decrypt a GreenCrypt blob (v1).
+    Verifies header, extracts salt, uses filename from AAD for authentication.
+    Raises ValueError on bad header, version mismatch, or authentication failure.
     """
-    if not blob.startswith(HEADER):
-        raise ValueError("Not a GreenCrypt file (invalid header).")
-    salt       = blob[16:32]
-    nonce      = blob[32:48]
-    tag        = blob[48:64]
+    if len(blob) < HEADER_SIZE + SALT_LEN + 16 + 16:  # header + salt + nonce + tag minimum
+        raise ValueError("Blob too small to be a GreenCrypt file.")
+    
+    # Parse header
+    magic = blob[:8]
+    if magic != MAGIC:
+        raise ValueError("Not a GreenCrypt file (invalid magic).")
+    
+    version = blob[8]
+    if version != CURRENT_VERSION:
+        raise ValueError(f"Unsupported GreenCrypt version: {version} (expected {CURRENT_VERSION})")
+    
+    flags = blob[9]
+    use_filename_aad = bool(flags & FLAG_FILENAME_AAD)
+    
+    # Extract components
+    salt = blob[16:32]
+    nonce = blob[32:48]
+    tag = blob[48:64]
     ciphertext = blob[64:]
-    key    = derive_key(password, salt)
+    
+    key = derive_key(password, salt)
     cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
+    
+    if use_filename_aad:
+        if expected_filename is None:
+            raise ValueError("Filename required for AAD verification but not provided.")
+        aad = _build_aad(expected_filename)
+        cipher.update(aad)
+    
     return cipher.decrypt_and_verify(ciphertext, tag)
 
 
@@ -143,8 +203,9 @@ def decrypt_bytes(password: str, blob: bytes) -> bytes:
 def encrypt_file(password: str, path: str, delete_original: bool = False) -> str:
     """Encrypt a single file -> writes <path>.aes next to original."""
     plaintext = read_bytes(path)
-    blob      = encrypt_bytes(password, plaintext)
-    out_path  = path + EXT
+    filename = os.path.basename(path)
+    blob = encrypt_bytes(password, plaintext, filename)
+    out_path = path + EXT
     write_bytes(out_path, blob)
     print(f"  [+] Encrypted  -> {out_path}")
     if delete_original:
@@ -153,24 +214,40 @@ def encrypt_file(password: str, path: str, delete_original: bool = False) -> str
     return out_path
 
 
+def _unique_output_path(directory: str, base_name: str) -> str:
+    """Generate a non-existing output path, appending _N if needed."""
+    out_path = os.path.join(directory, base_name)
+    if not os.path.exists(out_path):
+        return out_path
+    name, ext = os.path.splitext(base_name)
+    counter = 1
+    while True:
+        candidate = os.path.join(directory, f"{name}_{counter}{ext}")
+        if not os.path.exists(candidate):
+            return candidate
+        counter += 1
+
+
 def decrypt_file(password: str, path: str, delete_original: bool = False) -> str:
-    """Decrypt a single .aes file -> restores original filename."""
+    """Decrypt a single .aes file -> restores original filename from AAD."""
     blob = read_bytes(path)
+    # We need the filename from the .aes file for AAD verification
+    # The filename is the basename without .aes extension
+    aes_filename = os.path.basename(path)
+    if aes_filename.endswith(EXT):
+        original_filename = aes_filename[:-len(EXT)]
+    else:
+        original_filename = aes_filename + ".dec"
+    
     try:
-        plaintext = decrypt_bytes(password, blob)
+        plaintext = decrypt_bytes(password, blob, expected_filename=original_filename)
     except ValueError as e:
-        print(f"  [!] {path}: {e}")
-        sys.exit(1)
+        raise GreenCryptError(f"{path}: {e}") from e
 
-    # Recover original filename by stripping .aes extension
-    out_path = path[: -len(EXT)] if path.endswith(EXT) else path + ".dec"
-
-    # Write as text if valid UTF-8, otherwise as binary
-    try:
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(plaintext.decode("utf-8"))
-    except UnicodeDecodeError:
-        write_bytes(out_path, plaintext)
+    # Always write as binary; never attempt UTF-8 decoding
+    directory = os.path.dirname(path)
+    out_path = _unique_output_path(directory, original_filename)
+    write_bytes(out_path, plaintext)
 
     print(f"  [+] Decrypted  -> {out_path}")
     if delete_original:
@@ -187,10 +264,12 @@ def encrypt_target(password: str, target: str, delete_original: bool = False):
         files = scan_dir(target)
         print(f"[*] Encrypting {len(files)} file(s) in '{target}' ...")
         for f in files:
-            encrypt_file(password, f, delete_original)
+            try:
+                encrypt_file(password, f, delete_original)
+            except GreenCryptError as e:
+                print(f"  [!] {f}: {e}")
     else:
-        print(f"[!] Target '{target}' not found.")
-        sys.exit(1)
+        raise GreenCryptError(f"Target '{target}' not found.")
 
 
 def decrypt_target(password: str, target: str, delete_original: bool = False):
@@ -200,14 +279,15 @@ def decrypt_target(password: str, target: str, delete_original: bool = False):
     elif os.path.isdir(target):
         files = [f for f in scan_dir(target) if f.endswith(EXT)]
         if not files:
-            print(f"[!] No {EXT} files found in '{target}'.")
-            sys.exit(1)
+            raise GreenCryptError(f"No {EXT} files found in '{target}'.")
         print(f"[*] Decrypting {len(files)} {EXT} file(s) in '{target}' ...")
         for f in files:
-            decrypt_file(password, f, delete_original)
+            try:
+                decrypt_file(password, f, delete_original)
+            except GreenCryptError as e:
+                print(f"  [!] {f}: {e}")
     else:
-        print(f"[!] Target '{target}' not found.")
-        sys.exit(1)
+        raise GreenCryptError(f"Target '{target}' not found.")
 
 
 # -- Interactive mode ----------------------------------------------------------
@@ -217,16 +297,16 @@ def interactive_mode():
     print("  1) Encrypt\n  2) Decrypt\n  3) Exit")
     choice = input("Select [1/2/3]: ").strip()
     if choice == "3":
-        sys.exit(0)
+        return
     if choice not in ("1", "2"):
         print("[!] Invalid choice.")
-        sys.exit(1)
+        return
 
     raw_target = input("File or folder path: ").strip()
     target = os.path.abspath(raw_target)
     if not os.path.exists(target):
         print(f"[!] '{target}' does not exist.")
-        sys.exit(1)
+        return
 
     password = input("Password: ")
 
@@ -234,10 +314,13 @@ def interactive_mode():
     delete = answer == "y"
 
     print()
-    if choice == "1":
-        encrypt_target(password, target, delete_original=delete)
-    else:
-        decrypt_target(password, target, delete_original=delete)
+    try:
+        if choice == "1":
+            encrypt_target(password, target, delete_original=delete)
+        else:
+            decrypt_target(password, target, delete_original=delete)
+    except GreenCryptError as e:
+        print(f"[!] Error: {e}")
 
 
 # -- CLI argument parser -------------------------------------------------------
@@ -319,16 +402,23 @@ def cli_mode(args):
     # Resolve password
     if args.password:
         password = args.password
+        # Warn about password on CLI (visible in ps, history, logs)
+        print("[!] WARNING: Password provided via -p/--password is visible in process list and shell history.")
+        print("    Consider using -f/--file or interactive input instead.")
     elif args.file:
         password = password_from_file(args.file)
     else:
         password = input("Password: ")
 
     print()
-    if args.encrypt:
-        encrypt_target(password, target, delete_original=args.delete)
-    else:
-        decrypt_target(password, target, delete_original=args.delete)
+    try:
+        if args.encrypt:
+            encrypt_target(password, target, delete_original=args.delete)
+        else:
+            decrypt_target(password, target, delete_original=args.delete)
+    except GreenCryptError as e:
+        print(f"[!] Error: {e}")
+        sys.exit(1)
 
 
 # -- Entry point ---------------------------------------------------------------
