@@ -22,6 +22,12 @@ folder/
 AGENTS.md
 
 *.pyc
+__pycache__/
+
+# generados por Qt / PySide6 (no editar a mano)
+gui/main_ui.py
+*.qm
+
 *.log
 *.tmp
 *.sublime-project

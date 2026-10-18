@@ -3,12 +3,13 @@
 """
 GreenCrypt — AES-256-EAX file/folder encryption tool.
 
-CLI usage:
+Usage:
+  python GCrypt.py                          <- launch the Qt GUI
+  python GCrypt.py -i                       <- interactive CLI menu
   python GCrypt.py -e -p "mypassword" secret.txt
   python GCrypt.py -d -p "mypassword" secret.txt.aes
   python GCrypt.py -e -f pass.txt folder/
   python GCrypt.py -e -p "mypassword" --delete secret.txt
-  python GCrypt.py                         <- interactive menu
 
 File format (.aes) v1:
   [8 bytes]  magic       -- b"GrCrypt\x01"
@@ -28,6 +29,7 @@ Associated Data (AAD, authenticated but not encrypted):
 import os
 import sys
 import argparse
+import importlib.util
 import struct
 from pathlib import Path
 from Cryptodome.Cipher import AES
@@ -331,16 +333,17 @@ def build_parser() -> argparse.ArgumentParser:
         description="GreenCrypt — AES-256-EAX file/folder encryption",
         epilog=(
             "Examples:\n"
+            "  %(prog)s                      launch the GUI\n"
+            "  %(prog)s -i                   interactive CLI menu\n"
             "  %(prog)s -e -p 'secret' photo.jpg\n"
             "  %(prog)s -d -p 'secret' photo.jpg.aes\n"
             "  %(prog)s -e -f pass.txt documents/\n"
             "  %(prog)s -e -p 'secret' --delete secret.txt\n"
-            "  %(prog)s                      (interactive menu)\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    # Action (mutually exclusive)
+    # Action (mutually exclusive): encrypt / decrypt / interactive
     action_grp = parser.add_mutually_exclusive_group()
     action_grp.add_argument(
         "-e", "--encrypt",
@@ -351,6 +354,11 @@ def build_parser() -> argparse.ArgumentParser:
         "-d", "--decrypt",
         action="store_true",
         help="Decrypt the target file or folder",
+    )
+    action_grp.add_argument(
+        "-i", "--interactive",
+        action="store_true",
+        help="Run the interactive CLI menu (no GUI)",
     )
 
     # Password source (mutually exclusive)
@@ -421,16 +429,56 @@ def cli_mode(args):
         sys.exit(1)
 
 
+# -- GUI launcher --------------------------------------------------------------
+
+def launch_gui():
+    """Launch the Qt GUI front-end defined in gui/app.py."""
+    gui_dir = Path(__file__).resolve().parent / "gui"
+    if str(gui_dir) not in sys.path:
+        sys.path.insert(0, str(gui_dir))
+
+    # Make the GUI's `from GCrypt import ...` reuse THIS module instead of
+    # importing this file a second time under a different module name.
+    sys.modules.setdefault("GCrypt", sys.modules[__name__])
+
+    gui_app = gui_dir / "app.py"
+    if not gui_app.is_file():
+        print("[!] GUI not found at 'gui/app.py'.")
+        print("    Run with -i for the interactive CLI instead.")
+        sys.exit(1)
+
+    try:
+        spec = importlib.util.spec_from_file_location("greencrypt_gui", gui_app)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except ImportError as e:
+        print(f"[!] Could not start the GUI: {e}")
+        print("    Install PySide6 and compile the UI:")
+        print("      pip install pyside6")
+        print("      pyside6-uic gui/main.ui -o gui/main_ui.py")
+        print("    Or run with -i for the interactive CLI.")
+        sys.exit(1)
+
+    module.main()   # builds QApplication and enters the Qt event loop
+
+
 # -- Entry point ---------------------------------------------------------------
 
 def main():
-    # No arguments -> drop into interactive menu
+    # No arguments -> launch the graphical interface
     if len(sys.argv) == 1:
-        interactive_mode()
+        launch_gui()
         return
 
     parser = build_parser()
     args   = parser.parse_args()
+
+    # Explicit interactive CLI menu (-i / --interactive)
+    if args.interactive:
+        interactive_mode()
+        return
+
+    # Pure command-line mode (-e / -d ...)
     cli_mode(args)
 
 
