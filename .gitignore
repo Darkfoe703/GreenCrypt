@@ -21,6 +21,9 @@ folder/
 *.TAG
 AGENTS.md
 
+# Documentación de empaquetado personal (en español, no se versiona)
+PACKAGING.md
+
 *.pyc
 __pycache__/
 

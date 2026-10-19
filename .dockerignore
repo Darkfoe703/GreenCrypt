@@ -1,0 +1,22 @@
+# Keep the Docker build context tiny: the Dockerfile only installs Python deps,
+# it COPYs nothing from the tree. Never ship these to the daemon.
+.git
+.gitignore
+AGENTS.md
+PACKAGING.md
+
+# Big directories: host venv, experiments, previous build outputs.
+bin/
+lib/
+pruebas/
+build/
+dist/
+*.egg-info/
+__pycache__/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Artifacts
+*.AppImage
+*.tar.gz
