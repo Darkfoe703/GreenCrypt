@@ -24,7 +24,7 @@
 #   Telegram: @Darkfoe703
 #
 """
-test_greencrypt.py — Suite de pruebas para GCrypt.py v1
+test_greencrypt.py — Test suite for GreenCrypt core (v1).
 """
 import os
 import sys
@@ -32,10 +32,10 @@ import struct
 import tempfile
 import shutil
 
-# Asegurar que GCrypt.py sea importable desde el mismo directorio
+# Ensure the 'greencrypt' package is importable from the same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from GCrypt import (
+from greencrypt.core import (
     MAGIC, CURRENT_VERSION, FLAG_FILENAME_AAD, HEADER_SIZE, EXT, SALT_LEN,
     GreenCryptError,
     derive_key, _build_aad, _parse_aad,
@@ -47,7 +47,7 @@ from GCrypt import (
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
-PASS   = "vaallover15"
+PASS   = "vaallover1121941999"
 PASS2  = "wrong_password_xyz"
 
 passed = 0

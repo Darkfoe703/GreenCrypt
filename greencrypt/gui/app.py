@@ -24,20 +24,24 @@
 #   Telegram: @Darkfoe703
 #
 """
-GreenCrypt GUI — Qt front-end for the GCrypt crypto core.
+GreenCrypt GUI — Qt front-end for the GreenCrypt crypto core.
+
+The crypto logic lives in :mod:`greencrypt.core`; this module only wires the
+Qt widgets to it. Same file format, same PBKDF2-HMAC-SHA256 derivation, same
+AEAD filename authentication — no crypto is re-implemented here.
 
 Prerequisites
 -------------
-1. Install PySide6 in your virtualenv:
-       pip install pyside6
-2. Compile the Qt Designer UI into a Python module:
-       pyside6-uic gui/main.ui -o gui/main_ui.py
-3. Run:
-       python gui/app.py
+1. Install PySide6 (``pip install 'greencrypt[gui]'`` or plain ``pyside6``).
+2. Compile the Qt Designer UI into a Python module::
 
-The module reuses the exact crypto logic from the repository root (GCrypt.py):
-same file format, same PBKDF2-HMAC-SHA256 derivation, same AEAD filename
-authentication. No crypto is re-implemented here.
+       pyside6-uic greencrypt/gui/main.ui -o greencrypt/gui/main_ui.py
+
+3. Run one of::
+
+       python -m greencrypt          # no args -> GUI
+       python -m greencrypt.gui      # GUI directly
+       greencrypt-gui                # console script after `pip install .`
 
 All user-facing strings are in English.
 """
@@ -56,12 +60,8 @@ from PySide6.QtWidgets import (
     QMenu,
 )
 
-# --- Import the crypto core from the repository root --------------------------
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from GCrypt import (  # noqa: E402
+# --- Crypto core (same package) -----------------------------------------------
+from ..core import (
     encrypt_file,
     decrypt_file,
     scan_dir,
@@ -71,12 +71,12 @@ from GCrypt import (  # noqa: E402
 
 # --- Import the generated UI module (must be compiled first) -------------------
 try:
-    from main_ui import Ui_MainWindow  # type: ignore
+    from .main_ui import Ui_MainWindow  # type: ignore
 except ImportError:
     sys.stderr.write(
-        "\nERROR: 'gui/main_ui.py' was not found.\n"
+        "\nERROR: 'greencrypt/gui/main_ui.py' was not found.\n"
         "Compile the UI first with:\n"
-        "    pyside6-uic gui/main.ui -o gui/main_ui.py\n\n"
+        "    pyside6-uic greencrypt/gui/main.ui -o greencrypt/gui/main_ui.py\n\n"
     )
     raise
 
@@ -442,7 +442,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             "AES-256-EAX file &amp; folder encryption tool.<br><br>"
             "Format v1 — PBKDF2-HMAC-SHA256 (200,000 iterations)<br>"
             "Filename authenticated through AEAD (associated data).<br><br>"
-            "Shared core with the CLI (<code>GCrypt.py</code>).",
+            "Shared core with the CLI (<code>greencrypt.cli</code>).",
         )
 
 

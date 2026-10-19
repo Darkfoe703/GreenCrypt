@@ -8,9 +8,13 @@ front-ends that share the same hardened core:
 
 | Front-end | How to start | Best for |
 |-----------|--------------|----------|
-| **Qt GUI** | `python GCrypt.py` (no arguments) | Dragging files, everyday use |
-| **Interactive menu** | `python GCrypt.py -i` | Quick manual sessions in a terminal |
-| **Command line** | `python GCrypt.py -e/-d ...` | Scripts, automation, SSH |
+| **Qt GUI** | `python -m greencrypt` (no arguments) | Dragging files, everyday use |
+| **Interactive menu** | `python -m greencrypt -i` | Quick manual sessions in a terminal |
+| **Command line** | `python -m greencrypt -e/-d ...` | Scripts, automation, SSH |
+
+`GCrypt.py` is kept as a thin compatibility launcher, so the historical
+`python GCrypt.py ...` invocations keep working unchanged. After installing the
+package you also get the **`greencrypt`** and **`greencrypt-gui`** console scripts.
 
 > **Note:** this is an educational / personal project. Please read the
 > [Security notes](#security-notes) before trusting it with irreplaceable data.
@@ -50,13 +54,18 @@ front-ends that share the same hardened core:
 | Python | 3.13 (needs 3.10+) | Everything |
 | [`pycryptodomex`](https://pypi.org/project/pycryptodomex/) | 3.24.1 | Crypto core |
 | [`PySide6`](https://pypi.org/project/PySide6/) | 6.12.0 | GUI only (optional) |
-| [`chardet`](https://pypi.org/project/chardet/) | 7.6.0 | Legacy helper scripts only (optional) |
 
 > **Do not install `pycryptodome` and `pycryptodomex` together.** Both provide the
-> same `Cryptodome` package namespace and will conflict. GreenCrypt uses
-> **`pycryptodomex`** exclusively.
+> same `Cryptodome` package namespace and will conflict. GreenCrypt prefers
+> **`pycryptodomex`**.
+>
+> The core imports its crypto backend through a small shim, so it also runs against
+> Debian's `python3-pycryptodome` (which ships the `Cryptodome` namespace) or the
+> PyPI `pycryptodome` (whose namespace is `Crypto`) without any code change.
 
 ## Installation
+
+### Run from the source tree
 
 ```bash
 # 1. Clone
@@ -69,9 +78,29 @@ source bin/activate          # Linux / macOS
 # bin\Scripts\activate       # Windows (cmd/powershell)
 
 # 3. Install dependencies
-pip install -r requeriments.txt      # note: the file name is misspelled on purpose
+pip install pycryptodomex            # crypto backend (required)
 pip install PySide6                  # only if you want the graphical interface
 ```
+
+(Alternatively, install the project itself with its extras — see
+[Install as a package](#install-as-a-package) below.)
+
+From the repository root you can then use `python -m greencrypt` (or the
+`python GCrypt.py` shim) without installing anything else.
+
+### Install as a package
+
+The project ships a `pyproject.toml`, so it can be installed like any Python
+package (this creates the `greencrypt` / `greencrypt-gui` commands):
+
+```bash
+pip install .              # CLI only
+pip install '.[gui]'       # CLI + Qt GUI (pulls PySide6)
+pip install -e .           # editable install for development
+```
+
+The generated Qt module (`main_ui.py`) is **committed on purpose**, so a GUI
+install works out of the box — no compilation step required.
 
 Verify the core imports:
 
@@ -79,12 +108,37 @@ Verify the core imports:
 python -c "from Cryptodome.Cipher import AES; from Cryptodome.Protocol.KDF import PBKDF2; print('OK')"
 ```
 
+### Development setup
+
+Dev tooling is declared as a [PEP 735](https://peps.python.org/pep-0735/)
+dependency group, so it is **never installed for end users**:
+
+```bash
+pip install --group dev -e .   # project + dev tools (requires pip >= 25.1)
+```
+
+Common tasks are wrapped in the `Makefile` (it auto-detects the in-repo
+virtualenv, so just run `make`):
+
+```bash
+make            # list all targets
+make ui         # regenerate greencrypt/gui/main_ui.py from main.ui
+make check-ui   # CI guard: fail if main_ui.py is stale (never commit drift)
+make test       # run the test suite
+make lint       # ruff check
+make format     # ruff format
+make build      # build sdist + wheel into dist/
+```
+
+> Runtime vs dev: `[project.optional-dependencies]` (`gui`) is a feature a *user*
+> chooses; `[dependency-groups]` (`dev`) is tooling only *contributors* need.
+
 ## Usage
 
 ### 1. Graphical interface (no arguments)
 
 ```bash
-python GCrypt.py
+python -m greencrypt
 ```
 
 Drag files or folders onto the drop area (or use **Open**), type the password, and
@@ -93,7 +147,7 @@ press **Encrypt** / **Decrypt**. The window is a fixed 240×480 panel.
 ### 2. Interactive menu
 
 ```bash
-python GCrypt.py -i
+python -m greencrypt -i
 ```
 
 You get a small menu:
@@ -107,8 +161,8 @@ You get a small menu:
 ### 3. Non-interactive command line
 
 ```bash
-python GCrypt.py -e [options] TARGET   # encrypt
-python GCrypt.py -d [options] TARGET   # decrypt
+python -m greencrypt -e [options] TARGET   # encrypt
+python -m greencrypt -d [options] TARGET   # decrypt
 ```
 
 #### Options
@@ -131,21 +185,24 @@ python GCrypt.py -d [options] TARGET   # decrypt
 
 ```bash
 # Encrypt one file          -> secret.txt.aes
-python GCrypt.py -e -p "my passphrase" secret.txt
+python -m greencrypt -e -p "my passphrase" secret.txt
 
 # Decrypt it back           -> secret.txt (or secret_1.txt if it already exists)
-python GCrypt.py -d -p "my passphrase" secret.txt.aes
+python -m greencrypt -d -p "my passphrase" secret.txt.aes
 
 # Encrypt a whole folder recursively, password read from a file
-python GCrypt.py -e -f pass.txt ./documents
+python -m greencrypt -e -f pass.txt ./documents
 
 # Encrypt and then remove the original file
-python GCrypt.py -e -p "my passphrase" --delete secret.txt
+python -m greencrypt -e -p "my passphrase" --delete secret.txt
 
 # Interactive menu / GUI
-python GCrypt.py -i
-python GCrypt.py
+python -m greencrypt -i
+python -m greencrypt
 ```
+
+> After `pip install .` the same commands work without the `python -m` prefix,
+> e.g. `greencrypt -e -p "my passphrase" secret.txt`.
 
 ## File format
 
@@ -181,16 +238,38 @@ Notes:
 
 ```
 GreenCrypt/
-├── GCrypt.py            # core library + CLI + interactive menu + GUI launcher
-├── test_greencrypt.py   # self-contained test suite (30 tests)
-├── requeriments.txt     # runtime dependencies (filename kept as-is)
-├── gui/
-│   ├── app.py           # Qt front-end (PySide6)
-│   ├── main.ui          # Qt Designer source (edit this, not the generated file)
-│   ├── main_ui.py       # generated by pyside6-uic — git-ignored
-│   └── assets/          # logo.jpg (drop area) + icon.png/icon.ico (window icon)
-└── pruebas/             # legacy experiments — git-ignored, not part of the tool
+├── GCrypt.py                # compatibility launcher -> greencrypt.cli:main
+├── pyproject.toml           # package metadata + console scripts + dependencies
+├── Makefile                 # dev tasks (make ui, make test, make lint, ...)
+├── greencrypt/              # the importable package
+│   ├── __init__.py          # version + convenience re-exports
+│   ├── __main__.py          # `python -m greencrypt`
+│   ├── core.py              # crypto core: AES-256-EAX, .aes v1, PBKDF2 (UI-agnostic)
+│   ├── cli.py               # banner + argparse + interactive menu + GUI launcher
+│   └── gui/                 # Qt front-end (subpackage)
+│       ├── __init__.py      # exposes main() lazily (no PySide6 on import)
+│       ├── __main__.py      # `python -m greencrypt.gui`
+│       ├── app.py           # MainWindow + QApplication bootstrap
+│       ├── main.ui          # Qt Designer source — SINGLE SOURCE OF TRUTH
+│       ├── main_ui.py       # generated by pyside6-uic — committed (see GUI notes)
+│       └── assets/          # logo.jpg (drop area) + icon.png/icon.ico (window icon)
+├── tools/
+│   └── compile_ui.py        # regenerate / verify main_ui.py from main.ui
+├── test_greencrypt.py       # self-contained test suite (30 tests)
+├── LICENSE.md               # full GPLv3 text
+└── pruebas/                 # legacy experiments — git-ignored, not part of the tool
 ```
+
+### How the pieces fit together
+
+```text
+greencrypt.cli  ─┐
+                 ├─►  greencrypt.core   (AES-256-EAX + .aes v1 + PBKDF2)
+greencrypt.gui  ─┘
+```
+
+Both front-ends import the **same** core, so the file format and the crypto can
+never drift apart between the CLI and the GUI.
 
 ## Testing
 
@@ -208,17 +287,22 @@ round-trips, binary integrity, `--delete`, unique output names and error paths.
 
 ## GUI notes
 
-The interface is defined in Qt Designer XML (`gui/main.ui`). Before first run it must
-be **compiled** to Python:
+The interface is defined in Qt Designer XML: `greencrypt/gui/main.ui` is the
+**single source of truth**. The Python module it compiles to
+(`greencrypt/gui/main_ui.py`) is **generated** but **committed on purpose**, so a
+fresh clone (and `pip install '.[gui]'`) works without running a compiler.
+
+Regenerate it **only after editing `main.ui`**, never by hand:
 
 ```bash
-pyside6-uic gui/main.ui -o gui/main_ui.py
+make ui          # = python tools/compile_ui.py
+make check-ui    # CI guard: exits non-zero if main_ui.py is stale
 ```
 
-`gui/main_ui.py` is generated code and is **git-ignored** — never edit it by hand.
-If it is missing, GreenCrypt's launcher prints the exact command to run.
+The `check-ui` target is designed for CI / pre-commit hooks, so a `main.ui`
+change can never be committed without its regenerated `main_ui.py`.
 
-Assets live in `gui/assets/`:
+Assets live in `greencrypt/gui/assets/`:
 
 - **`logo.jpg`** — shown inside the drop area.
 - **`icon.png`** — window / taskbar icon (also `icon.ico` for Windows packaging).

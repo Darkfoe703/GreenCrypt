@@ -24,8 +24,10 @@ AGENTS.md
 *.pyc
 __pycache__/
 
-# generados por Qt / PySide6 (no editar a mano)
-gui/main_ui.py
+# salidas de Qt / PySide6 (*.qm = traducciones compiladas)
+# NOTA: greencrypt/gui/main_ui.py SÍ se versiona a propósito: es generado, pero
+# lo commiteamos para que un clon limpio (y `pip install '.[gui]'`) funcione sin
+# compilar nada. Editá main.ui y corré `make ui` para regenerarlo.
 *.qm
 
 *.log
