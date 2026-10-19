@@ -82,7 +82,7 @@ except ImportError:
 
 
 # Keep in sync with the default text defined in gui/main.ui
-DEFAULT_HINT = 'Drag files or folders here'
+DEFAULT_HINT = "Drag files or folders here"
 
 # Folder that holds optional visual assets (logo, window icon).
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
@@ -146,7 +146,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         # --- Internal state ---------------------------------------------------
-        self.targets = []          # list[str]: absolute paths queued for processing
+        self.targets = []  # list[str]: absolute paths queued for processing
         self.password_file = None  # str | None: path to a password file
 
         # --- Cosmetic / behavior setup ---------------------------------------

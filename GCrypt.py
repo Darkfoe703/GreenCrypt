@@ -45,8 +45,6 @@ Preferred forms going forward::
     greencrypt [args...]             # after `pip install .`
 """
 
-import sys
-
 from greencrypt.cli import main
 
 if __name__ == "__main__":

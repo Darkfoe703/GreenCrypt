@@ -71,14 +71,14 @@ def find_uic() -> list[str] | None:
     scripts_dir = "Scripts" if os.name == "nt" else "bin"
 
     candidates = [
-        Path(sys.executable).resolve().parent / exe,   # <venv>/bin/pyside6-uic
-        Path(sys.prefix) / scripts_dir / exe,          # robust on Windows
+        Path(sys.executable).resolve().parent / exe,  # <venv>/bin/pyside6-uic
+        Path(sys.prefix) / scripts_dir / exe,  # robust on Windows
     ]
     for candidate in candidates:
         if candidate.is_file():
             return [str(candidate)]
 
-    found = shutil.which("pyside6-uic")                # anywhere on PATH
+    found = shutil.which("pyside6-uic")  # anywhere on PATH
     if found:
         return [found]
 
@@ -125,8 +125,9 @@ def main() -> int:
         if up_to_date:
             print(f"[ok] {OUT_FILE.relative_to(ROOT)} is up to date with {UI_FILE.name}.")
             return 0
-        print(f"[!] {OUT_FILE.relative_to(ROOT)} is OUT OF DATE with {UI_FILE.name}.",
-              file=sys.stderr)
+        print(
+            f"[!] {OUT_FILE.relative_to(ROOT)} is OUT OF DATE with {UI_FILE.name}.", file=sys.stderr
+        )
         print("    Run:  make ui   (or: python tools/compile_ui.py)", file=sys.stderr)
         return 1
 

@@ -49,5 +49,5 @@ build:
 
 clean:
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
-	rm -rf build dist ./*.egg-info
+	rm -rf build dist ./*.egg-info .ruff_cache .pytest_cache .mypy_cache
 	rm -f greencrypt/gui/main_ui.py.check

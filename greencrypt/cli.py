@@ -54,10 +54,13 @@ from .core import (
 
 # -- Banner --------------------------------------------------------------------
 
+
 def banner():
     green = "\033[1;32m"
     reset = "\033[m"
-    print(green + r"""
+    print(
+        green
+        + r"""
    _____                      _____                  _   
   / ____|                    / ____|                | |  
  | |  __ _ __ ___  ___ _ __ | |     _ __ _   _ _ __ | |_ 
@@ -66,10 +69,13 @@ def banner():
   \_____|_|  \___|\___|_| |_|\_____|_|   \__, | .__/ \__|
                                           __/ | |        
                                          |___/|_|        
-""" + reset)
+"""
+        + reset
+    )
 
 
 # -- Interactive mode ----------------------------------------------------------
+
 
 def interactive_mode():
     """Simple guided menu for people who prefer not to memorise flags."""
@@ -105,6 +111,7 @@ def interactive_mode():
 
 # -- CLI argument parser -------------------------------------------------------
 
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="greencrypt",
@@ -124,17 +131,20 @@ def build_parser() -> argparse.ArgumentParser:
     # Action (mutually exclusive): encrypt / decrypt / interactive
     action_grp = parser.add_mutually_exclusive_group()
     action_grp.add_argument(
-        "-e", "--encrypt",
+        "-e",
+        "--encrypt",
         action="store_true",
         help="Encrypt the target file or folder",
     )
     action_grp.add_argument(
-        "-d", "--decrypt",
+        "-d",
+        "--decrypt",
         action="store_true",
         help="Decrypt the target file or folder",
     )
     action_grp.add_argument(
-        "-i", "--interactive",
+        "-i",
+        "--interactive",
         action="store_true",
         help="Run the interactive CLI menu (no GUI)",
     )
@@ -142,12 +152,14 @@ def build_parser() -> argparse.ArgumentParser:
     # Password source (mutually exclusive)
     pwd_grp = parser.add_mutually_exclusive_group()
     pwd_grp.add_argument(
-        "-p", "--password",
+        "-p",
+        "--password",
         metavar="PASSWORD",
         help="Password as a plain string",
     )
     pwd_grp.add_argument(
-        "-f", "--file",
+        "-f",
+        "--file",
         metavar="FILE",
         help="Path to a file containing the password (first line used)",
     )
@@ -192,7 +204,9 @@ def cli_mode(args):
         if args.password:
             password = args.password
             # Warn about password on CLI (visible in ps, history, logs)
-            print("[!] WARNING: Password provided via -p/--password is visible in process list and shell history.")
+            print(
+                "[!] WARNING: Password provided via -p/--password is visible in process list and shell history."
+            )
             print("    Consider using -f/--file or interactive input instead.")
         elif args.file:
             password = password_from_file(args.file)
@@ -211,6 +225,7 @@ def cli_mode(args):
 
 # -- GUI launcher --------------------------------------------------------------
 
+
 def launch_gui():
     """Launch the Qt GUI front-end (:mod:`greencrypt.gui`).
 
@@ -227,10 +242,11 @@ def launch_gui():
         print("    Or run with -i for the interactive CLI.")
         sys.exit(1)
 
-    gui_main()   # builds QApplication and enters the Qt event loop
+    gui_main()  # builds QApplication and enters the Qt event loop
 
 
 # -- Entry point ---------------------------------------------------------------
+
 
 def main():
     # No arguments -> launch the graphical interface

@@ -80,13 +80,13 @@ except ImportError:  # pragma: no cover - depends on what is installed
 
 # -- Constants -----------------------------------------------------------------
 
-MAGIC             = b"GrCrypt\x01"   # 8 bytes
-CURRENT_VERSION   = 1
-FLAG_FILENAME_AAD = 0x01             # bit 0: filename included in AAD
-HEADER_SIZE       = 16               # magic(8) + version(1) + flags(1) + reserved(6)
-EXT               = ".aes"
-SALT_LEN          = 16
-PBKDF2_ITER       = 200_000
+MAGIC = b"GrCrypt\x01"  # 8 bytes
+CURRENT_VERSION = 1
+FLAG_FILENAME_AAD = 0x01  # bit 0: filename included in AAD
+HEADER_SIZE = 16  # magic(8) + version(1) + flags(1) + reserved(6)
+EXT = ".aes"
+SALT_LEN = 16
+PBKDF2_ITER = 200_000
 
 
 class GreenCryptError(Exception):
@@ -99,6 +99,7 @@ class GreenCryptError(Exception):
 
 
 # -- Key derivation ------------------------------------------------------------
+
 
 def derive_key(password: str, salt: bytes) -> bytes:
     """Derive a 32-byte AES-256 key from a password + salt.
@@ -126,6 +127,7 @@ def password_from_file(path: str) -> str:
 
 # -- Low-level I/O -------------------------------------------------------------
 
+
 def read_bytes(path: str) -> bytes:
     try:
         with open(path, "rb") as f:
@@ -152,6 +154,7 @@ def scan_dir(directory: str) -> list:
 
 
 # -- Crypto core ---------------------------------------------------------------
+
 
 def _build_aad(filename: str) -> bytes:
     """Build Associated Data: 2-byte length (big-endian) + UTF-8 filename."""
@@ -232,6 +235,7 @@ def decrypt_bytes(password: str, blob: bytes, expected_filename: str | None = No
 
 # -- High-level file operations ------------------------------------------------
 
+
 def encrypt_file(password: str, path: str, delete_original: bool = False) -> str:
     """Encrypt a single file -> writes ``<path>.aes`` next to the original."""
     plaintext = read_bytes(path)
@@ -267,7 +271,7 @@ def decrypt_file(password: str, path: str, delete_original: bool = False) -> str
     # The filename is the basename without .aes extension
     aes_filename = os.path.basename(path)
     if aes_filename.endswith(EXT):
-        original_filename = aes_filename[:-len(EXT)]
+        original_filename = aes_filename[: -len(EXT)]
     else:
         original_filename = aes_filename + ".dec"
 

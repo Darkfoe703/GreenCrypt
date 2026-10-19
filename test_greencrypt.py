@@ -26,47 +26,57 @@
 """
 test_greencrypt.py — Test suite for GreenCrypt core (v1).
 """
+
 import os
 import sys
 import struct
 import tempfile
-import shutil
 
 # Ensure the 'greencrypt' package is importable from the same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from greencrypt.core import (
-    MAGIC, CURRENT_VERSION, FLAG_FILENAME_AAD, HEADER_SIZE, EXT, SALT_LEN,
+    MAGIC,
+    CURRENT_VERSION,
+    FLAG_FILENAME_AAD,
+    EXT,
     GreenCryptError,
-    derive_key, _build_aad, _parse_aad,
-    encrypt_bytes, decrypt_bytes,
-    encrypt_file, decrypt_file,
-    encrypt_target, decrypt_target,
+    _build_aad,
+    _parse_aad,
+    encrypt_bytes,
+    decrypt_bytes,
+    encrypt_file,
+    decrypt_file,
+    encrypt_target,
+    decrypt_target,
     _unique_output_path,
 )
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
-PASS   = "vaallover1121941999"
-PASS2  = "wrong_password_xyz"
+PASS = "vaallover1121941999"
+PASS2 = "wrong_password_xyz"
 
 passed = 0
 failed = 0
+
 
 def ok(name):
     global passed
     passed += 1
     print(f"  [PASS] {name}")
 
+
 def fail(name, reason=""):
     global failed
     failed += 1
     print(f"  [FAIL] {name}" + (f": {reason}" if reason else ""))
 
+
 def section(title):
-    print(f"\n{'─'*60}")
+    print(f"\n{'─' * 60}")
     print(f"  {title}")
-    print(f"{'─'*60}")
+    print(f"{'─' * 60}")
 
 
 # ── 1. _build_aad / _parse_aad ────────────────────────────────────────────────
@@ -91,7 +101,7 @@ except Exception as e:
     fail("_parse_aad round-trip", str(e))
 
 try:
-    _parse_aad(b"\x00")           # too short
+    _parse_aad(b"\x00")  # too short
     fail("_parse_aad rejects too-short AAD")
 except ValueError:
     ok("_parse_aad rejects too-short AAD")
@@ -99,7 +109,7 @@ except Exception as e:
     fail("_parse_aad rejects too-short AAD", str(e))
 
 try:
-    bad = struct.pack(">H", 5) + b"ab"   # len=5 but only 2 bytes of name
+    bad = struct.pack(">H", 5) + b"ab"  # len=5 but only 2 bytes of name
     _parse_aad(bad)
     fail("_parse_aad rejects length mismatch")
 except ValueError:
@@ -121,7 +131,7 @@ except Exception as e:
 section("2. Crypto core (encrypt_bytes / decrypt_bytes)")
 
 plaintext = b"Datos secretos de prueba 1234 \xff\x00\xab"
-fname     = "test_file.bin"
+fname = "test_file.bin"
 
 try:
     blob = encrypt_bytes(PASS, plaintext, fname)
@@ -158,14 +168,14 @@ if blob:
         fail("Blob reserved", str(e))
 
     try:
-        salt  = blob[16:32]
+        salt = blob[16:32]
         nonce = blob[32:48]
-        tag   = blob[48:64]
-        ct    = blob[64:]
-        assert len(salt)  == 16, f"salt len={len(salt)}"
+        tag = blob[48:64]
+        ct = blob[64:]
+        assert len(salt) == 16, f"salt len={len(salt)}"
         assert len(nonce) == 16, f"nonce len={len(nonce)}"
-        assert len(tag)   == 16, f"tag len={len(tag)}"
-        assert len(ct)    == len(plaintext), f"ct len={len(ct)}"
+        assert len(tag) == 16, f"tag len={len(tag)}"
+        assert len(ct) == len(plaintext), f"ct len={len(ct)}"
         ok(f"Blob: salt(16) | nonce(16) | tag(16) | ct({len(ct)}) — offsets correct")
     except AssertionError as e:
         fail("Blob field offsets", str(e))
@@ -271,7 +281,7 @@ section("4. File-level encrypt / decrypt")
 with tempfile.TemporaryDirectory() as tmpdir:
     # text file
     orig_path = os.path.join(tmpdir, "hello.txt")
-    content   = b"Hola GreenCrypt v1!\nLinea 2.\n"
+    content = b"Hola GreenCrypt v1!\nLinea 2.\n"
     with open(orig_path, "wb") as f:
         f.write(content)
 
@@ -393,8 +403,8 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-print(f"\n{'═'*60}")
+print(f"\n{'═' * 60}")
 total = passed + failed
 print(f"  Results: {passed}/{total} passed", "✓" if failed == 0 else f"— {failed} FAILED")
-print(f"{'═'*60}\n")
+print(f"{'═' * 60}\n")
 sys.exit(0 if failed == 0 else 1)

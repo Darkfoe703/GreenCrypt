@@ -24,6 +24,17 @@ AGENTS.md
 *.pyc
 __pycache__/
 
+# Artefactos de build / empaquetado (NO versionar)
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Cachés de herramientas de desarrollo
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
 # salidas de Qt / PySide6 (*.qm = traducciones compiladas)
 # NOTA: greencrypt/gui/main_ui.py SÍ se versiona a propósito: es generado, pero
 # lo commiteamos para que un clon limpio (y `pip install '.[gui]'`) funcione sin
