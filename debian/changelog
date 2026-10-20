@@ -4,5 +4,7 @@ greencrypt (1.0.0-1) unstable; urgency=medium
   * Split the upstream tree into two binary packages:
     - greencrypt: shared core + CLI (no Qt dependency).
     - greencrypt-gui: PySide6 graphical interface.
+  * Add pybuild-plugin-pyproject to Build-Depends; pybuild needs it to
+    build PEP 517 projects (pyproject.toml + setuptools).
 
  -- Marco Antonio Romero <marcoromero.dev@gmail.com>  Mon, 19 Oct 2026 12:00:00 -0300
