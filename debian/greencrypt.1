@@ -1,0 +1,65 @@
+.TH GREENCRYPT 1 "2026-10-19" "GreenCrypt 1.0.0" "User Commands"
+.SH NAME
+greencrypt \- AES-256-EAX file and folder encryption tool
+.SH SYNOPSIS
+.B greencrypt
+.RI [ options ]
+.RI [ target ]
+.SH DESCRIPTION
+.B greencrypt
+encrypts and decrypts files and folders using AES-256 in EAX mode.
+Each encrypted file gets a random 16-byte salt and nonce, and the key is
+derived from the password with PBKDF2-HMAC-SHA256 using 200000 iterations.
+.PP
+When run without arguments, it launches the graphical interface if the
+.B greencrypt-gui
+package is installed.
+.SH OPTIONS
+.TP
+.BR \-e ", " \-\-encrypt
+Encrypt the target file or folder.
+.TP
+.BR \-d ", " \-\-decrypt
+Decrypt the target file or folder.
+.TP
+.BR \-i ", " \-\-interactive
+Run the interactive command-line menu instead of the graphical interface.
+.TP
+.BR \-p ", " \-\-password " " \fIPASSWORD\fR
+Use \fIPASSWORD\fR as the password.
+Warning: the password is visible in the process list and shell history.
+.TP
+.BR \-f ", " \-\-file " " \fIFILE\fR
+Read the password from the first line of \fIFILE\fR.
+.TP
+.B \-\-delete
+Delete the original file or folder after processing.
+.TP
+.BR \-h ", " \-\-help
+Show a help message and exit.
+.SH ARGUMENTS
+.TP
+.I target
+File or folder to encrypt or decrypt.
+.SH EXAMPLES
+.TP
+.B greencrypt \-e \-p 'secret' photo.jpg
+Encrypt \fIphoto.jpg\fR.
+.TP
+.B greencrypt \-d \-p 'secret' photo.jpg.aes
+Decrypt \fIphoto.jpg.aes\fR.
+.TP
+.B greencrypt \-e \-f pass.txt documents/
+Encrypt the \fIdocuments\fR folder using the password stored in \fIpass.txt\fR.
+.TP
+.B greencrypt \-e \-p 'secret' \-\-delete secret.txt
+Encrypt \fIsecret.txt\fR and delete the original.
+.SH FILES
+.TP
+.I file.aes
+Encrypted output. The format contains a magic header, a random salt,
+a nonce, an authentication tag and the ciphertext.
+.SH SEE ALSO
+.BR greencrypt-gui (1)
+.SH AUTHOR
+Marco Antonio Romero <marcoromero.dev@gmail.com>

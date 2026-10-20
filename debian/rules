@@ -18,9 +18,16 @@ override_dh_auto_test:
 
 # The .desktop entry and the icon are not part of the Python wheel. Stage them
 # under debian/tmp so debian/greencrypt-gui.install can route them.
+#
+# The upstream desktop entry uses Exec=greencrypt, but in Debian the GUI
+# package ships /usr/bin/greencrypt-gui while /usr/bin/greencrypt lives in the
+# CLI package. Rewrite the staged copy so the entry and the executable are in
+# the same binary package (and the AppImage keeps its upstream file untouched).
 override_dh_auto_install:
 	dh_auto_install
 	install -Dm644 packaging/greencrypt.desktop \
+		debian/tmp/usr/share/applications/greencrypt.desktop
+	sed -i 's/^Exec=greencrypt$$/Exec=greencrypt-gui/' \
 		debian/tmp/usr/share/applications/greencrypt.desktop
 	install -Dm644 greencrypt/gui/assets/icon.png \
 		debian/tmp/usr/share/icons/hicolor/1024x1024/apps/greencrypt.png
