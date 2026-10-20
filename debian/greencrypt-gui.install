@@ -1,4 +1,4 @@
 usr/bin/greencrypt-gui
-usr/lib/python3/dist-packages/greencrypt/gui
+usr/lib/python3*/dist-packages/greencrypt/gui
 usr/share/applications/greencrypt.desktop
 usr/share/icons/hicolor/1024x1024/apps/greencrypt.png
