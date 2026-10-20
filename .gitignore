@@ -23,6 +23,8 @@ AGENTS.md
 
 # Documentación de empaquetado personal (en español, no se versiona)
 PACKAGING.md
+debian/PACKAGING-DEB.md
+WORKFLOW.md
 
 *.pyc
 __pycache__/
