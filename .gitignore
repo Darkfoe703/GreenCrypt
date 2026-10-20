@@ -33,6 +33,26 @@ build/
 dist/
 .eggs/
 
+# dpkg-buildpackage: el directorio debian/ SÍ se versiona (es el packaging).
+# Solo ignoramos lo que el build genera dentro de él.
+debian/.debhelper/
+debian/.pybuild/
+debian/debhelper-build-stamp
+debian/files
+debian/*.substvars
+debian/tmp/
+debian/greencrypt/
+debian/greencrypt-gui/
+debian/*.debhelper
+debian/patches/.quilt
+.pc/
+
+# Paquetes generados (dpkg-buildpackage los deja en el directorio padre)
+*.deb
+*.changes
+*.buildinfo
+*.dsc
+
 # Cachés de herramientas de desarrollo
 .ruff_cache/
 .pytest_cache/

@@ -1,0 +1,44 @@
+Source: greencrypt
+Section: utils
+Priority: optional
+Maintainer: Marco Antonio Romero <marcoromero.dev@gmail.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-python,
+ python3,
+ python3-build,
+ python3-setuptools,
+ python3-pycryptodome,
+Standards-Version: 4.7.2
+Rules-Requires-Root: no
+Homepage: https://github.com/Darkfoe703/GreenCrypt
+Vcs-Git: https://github.com/Darkfoe703/GreenCrypt.git
+Vcs-Browser: https://github.com/Darkfoe703/GreenCrypt
+
+Package: greencrypt
+Architecture: all
+Depends:
+ ${misc:Depends},
+ ${python3:Depends},
+ python3-pycryptodome,
+Description: AES-256-EAX file and folder encryption tool (CLI)
+ GreenCrypt encrypts and decrypts files and folders with AES-256 in EAX
+ mode. Every file gets a random 16-byte salt and nonce, and the key is
+ derived with PBKDF2-HMAC-SHA256 (200000 iterations).
+ .
+ This package provides the shared cryptographic core, the command-line
+ interface and the interactive menu.
+
+Package: greencrypt-gui
+Architecture: all
+Depends:
+ ${misc:Depends},
+ ${python3:Depends},
+ greencrypt (= ${binary:Version}),
+ python3-pyside6.qtwidgets,
+Description: AES-256-EAX file and folder encryption tool (Qt GUI)
+ GreenCrypt encrypts and decrypts files and folders with AES-256 in EAX
+ mode. Every file gets a random 16-byte salt and nonce, and the key is
+ derived with PBKDF2-HMAC-SHA256 (200000 iterations).
+ .
+ This package provides the Qt (PySide6) graphical interface.

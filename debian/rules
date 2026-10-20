@@ -1,0 +1,26 @@
+#!/usr/bin/make -f
+#
+# GreenCrypt — Debian packaging rules.
+#
+# debhelper (dh) orchestrates the build. The `python3` addon (dh-python) adds
+# dh_python3, and `--buildsystem=pybuild` makes dh_auto_* use pybuild, which
+# understands pyproject.toml + setuptools.
+#
+# Keep recipes indented with TABS (Makefile requirement).
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+# The upstream test suite is standalone (no pytest needed). Running it here
+# means a broken crypto core cannot reach a .deb.
+override_dh_auto_test:
+	python3 test_greencrypt.py
+
+# The .desktop entry and the icon are not part of the Python wheel. Stage them
+# under debian/tmp so debian/greencrypt-gui.install can route them.
+override_dh_auto_install:
+	dh_auto_install
+	install -Dm644 packaging/greencrypt.desktop \
+		debian/tmp/usr/share/applications/greencrypt.desktop
+	install -Dm644 greencrypt/gui/assets/icon.png \
+		debian/tmp/usr/share/icons/hicolor/1024x1024/apps/greencrypt.png
