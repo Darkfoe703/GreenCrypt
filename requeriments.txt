@@ -1,2 +1,0 @@
-chardet==7.6.0
-pycryptodomex==3.24.1

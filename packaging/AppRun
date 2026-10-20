@@ -1,0 +1,25 @@
+#!/bin/sh
+# -*- coding: utf-8 -*-
+#
+# GreenCrypt — AES-256-EAX file & folder encryption tool.
+# Copyright (C) 2026  Marco Antonio Romero (@Darkfoe703)
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# AppRun — entry point of the GreenCrypt AppImage.
+#
+# The AppImage runtime mounts the AppDir at a temporary location and exports it
+# as $APPDIR before running this script. We fall back to resolving our own path
+# so AppRun also works when run straight from an extracted AppDir
+# (`./GreenCrypt.AppImage --appimage-extract` then `./squashfs-root/AppRun`).
+#
+# The frozen executable dispatches by argv, exactly like the console script:
+#     no arguments   -> Qt GUI
+#     with arguments -> command-line interface
+# so this single AppImage serves both front-ends.
+
+set -eu
+
+HERE="${APPDIR:-$(cd "$(dirname "$0")" && pwd)}"
+
+exec "${HERE}/usr/bin/greencrypt" "$@"

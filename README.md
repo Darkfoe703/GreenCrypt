@@ -8,9 +8,13 @@ front-ends that share the same hardened core:
 
 | Front-end | How to start | Best for |
 |-----------|--------------|----------|
-| **Qt GUI** | `python GCrypt.py` (no arguments) | Dragging files, everyday use |
-| **Interactive menu** | `python GCrypt.py -i` | Quick manual sessions in a terminal |
-| **Command line** | `python GCrypt.py -e/-d ...` | Scripts, automation, SSH |
+| **Qt GUI** | `python -m greencrypt` (no arguments) | Dragging files, everyday use |
+| **Interactive menu** | `python -m greencrypt -i` | Quick manual sessions in a terminal |
+| **Command line** | `python -m greencrypt -e/-d ...` | Scripts, automation, SSH |
+
+`GCrypt.py` is kept as a thin compatibility launcher, so the historical
+`python GCrypt.py ...` invocations keep working unchanged. After installing the
+package you also get the **`greencrypt`** and **`greencrypt-gui`** console scripts.
 
 > **Note:** this is an educational / personal project. Please read the
 > [Security notes](#security-notes) before trusting it with irreplaceable data.
@@ -24,6 +28,8 @@ front-ends that share the same hardened core:
 - [File format](#file-format)
 - [Project structure](#project-structure)
 - [Testing](#testing)
+- [Standalone build](#standalone-build)
+- [AppImage](#appimage)
 - [GUI notes](#gui-notes)
 - [Security notes](#security-notes)
 - [License](#license)
@@ -50,13 +56,18 @@ front-ends that share the same hardened core:
 | Python | 3.13 (needs 3.10+) | Everything |
 | [`pycryptodomex`](https://pypi.org/project/pycryptodomex/) | 3.24.1 | Crypto core |
 | [`PySide6`](https://pypi.org/project/PySide6/) | 6.12.0 | GUI only (optional) |
-| [`chardet`](https://pypi.org/project/chardet/) | 7.6.0 | Legacy helper scripts only (optional) |
 
 > **Do not install `pycryptodome` and `pycryptodomex` together.** Both provide the
-> same `Cryptodome` package namespace and will conflict. GreenCrypt uses
-> **`pycryptodomex`** exclusively.
+> same `Cryptodome` package namespace and will conflict. GreenCrypt prefers
+> **`pycryptodomex`**.
+>
+> The core imports its crypto backend through a small shim, so it also runs against
+> Debian's `python3-pycryptodome` (which ships the `Cryptodome` namespace) or the
+> PyPI `pycryptodome` (whose namespace is `Crypto`) without any code change.
 
 ## Installation
+
+### Run from the source tree
 
 ```bash
 # 1. Clone
@@ -69,9 +80,29 @@ source bin/activate          # Linux / macOS
 # bin\Scripts\activate       # Windows (cmd/powershell)
 
 # 3. Install dependencies
-pip install -r requeriments.txt      # note: the file name is misspelled on purpose
+pip install pycryptodomex            # crypto backend (required)
 pip install PySide6                  # only if you want the graphical interface
 ```
+
+(Alternatively, install the project itself with its extras — see
+[Install as a package](#install-as-a-package) below.)
+
+From the repository root you can then use `python -m greencrypt` (or the
+`python GCrypt.py` shim) without installing anything else.
+
+### Install as a package
+
+The project ships a `pyproject.toml`, so it can be installed like any Python
+package (this creates the `greencrypt` / `greencrypt-gui` commands):
+
+```bash
+pip install .              # CLI only
+pip install '.[gui]'       # CLI + Qt GUI (pulls PySide6)
+pip install -e .           # editable install for development
+```
+
+The generated Qt module (`main_ui.py`) is **committed on purpose**, so a GUI
+install works out of the box — no compilation step required.
 
 Verify the core imports:
 
@@ -79,12 +110,42 @@ Verify the core imports:
 python -c "from Cryptodome.Cipher import AES; from Cryptodome.Protocol.KDF import PBKDF2; print('OK')"
 ```
 
+### Development setup
+
+Dev tooling is declared as [PEP 735](https://peps.python.org/pep-0735/)
+dependency groups, so it is **never installed for end users**. There are two:
+`dev` (linter/formatter/build) and `package` (PyInstaller, only for freezing):
+
+```bash
+pip install --group dev -e .              # contributor tooling
+pip install --group dev --group package -e .   # ...plus the freezer
+```
+
+Common tasks are wrapped in the `Makefile` (it auto-detects the in-repo
+virtualenv, so just run `make`):
+
+```bash
+make                # list all targets
+make ui             # regenerate greencrypt/gui/main_ui.py from main.ui
+make check-ui       # CI guard: fail if main_ui.py is stale (never commit drift)
+make test           # run the test suite
+make lint           # ruff check
+make format         # ruff format
+make build          # build sdist + wheel into dist/
+make standalone     # freeze the full app (CLI+GUI) with PyInstaller
+make appimage       # wrap it into a single-file AppImage
+make appimage-docker # same AppImage, frozen in a manylinux container (portable)
+```
+
+> Runtime vs dev: `[project.optional-dependencies]` (`gui`) is a feature a *user*
+> chooses; `[dependency-groups]` (`dev`) is tooling only *contributors* need.
+
 ## Usage
 
 ### 1. Graphical interface (no arguments)
 
 ```bash
-python GCrypt.py
+python -m greencrypt
 ```
 
 Drag files or folders onto the drop area (or use **Open**), type the password, and
@@ -93,7 +154,7 @@ press **Encrypt** / **Decrypt**. The window is a fixed 240×480 panel.
 ### 2. Interactive menu
 
 ```bash
-python GCrypt.py -i
+python -m greencrypt -i
 ```
 
 You get a small menu:
@@ -107,8 +168,8 @@ You get a small menu:
 ### 3. Non-interactive command line
 
 ```bash
-python GCrypt.py -e [options] TARGET   # encrypt
-python GCrypt.py -d [options] TARGET   # decrypt
+python -m greencrypt -e [options] TARGET   # encrypt
+python -m greencrypt -d [options] TARGET   # decrypt
 ```
 
 #### Options
@@ -131,21 +192,24 @@ python GCrypt.py -d [options] TARGET   # decrypt
 
 ```bash
 # Encrypt one file          -> secret.txt.aes
-python GCrypt.py -e -p "my passphrase" secret.txt
+python -m greencrypt -e -p "my passphrase" secret.txt
 
 # Decrypt it back           -> secret.txt (or secret_1.txt if it already exists)
-python GCrypt.py -d -p "my passphrase" secret.txt.aes
+python -m greencrypt -d -p "my passphrase" secret.txt.aes
 
 # Encrypt a whole folder recursively, password read from a file
-python GCrypt.py -e -f pass.txt ./documents
+python -m greencrypt -e -f pass.txt ./documents
 
 # Encrypt and then remove the original file
-python GCrypt.py -e -p "my passphrase" --delete secret.txt
+python -m greencrypt -e -p "my passphrase" --delete secret.txt
 
 # Interactive menu / GUI
-python GCrypt.py -i
-python GCrypt.py
+python -m greencrypt -i
+python -m greencrypt
 ```
+
+> After `pip install .` the same commands work without the `python -m` prefix,
+> e.g. `greencrypt -e -p "my passphrase" secret.txt`.
 
 ## File format
 
@@ -181,16 +245,45 @@ Notes:
 
 ```
 GreenCrypt/
-├── GCrypt.py            # core library + CLI + interactive menu + GUI launcher
-├── test_greencrypt.py   # self-contained test suite (30 tests)
-├── requeriments.txt     # runtime dependencies (filename kept as-is)
-├── gui/
-│   ├── app.py           # Qt front-end (PySide6)
-│   ├── main.ui          # Qt Designer source (edit this, not the generated file)
-│   ├── main_ui.py       # generated by pyside6-uic — git-ignored
-│   └── assets/          # logo.jpg (drop area) + icon.png/icon.ico (window icon)
-└── pruebas/             # legacy experiments — git-ignored, not part of the tool
+├── GCrypt.py                # compatibility launcher -> greencrypt.cli:main
+├── pyproject.toml           # package metadata + console scripts + dependencies
+├── Makefile                 # dev tasks (make ui, make test, make standalone, ...)
+├── greencrypt.spec          # PyInstaller recipe (standalone build)
+├── greencrypt/              # the importable package
+│   ├── __init__.py          # version + convenience re-exports
+│   ├── __main__.py          # `python -m greencrypt`
+│   ├── core.py              # crypto core: AES-256-EAX, .aes v1, PBKDF2 (UI-agnostic)
+│   ├── cli.py               # banner + argparse + interactive menu + GUI launcher
+│   └── gui/                 # Qt front-end (subpackage)
+│       ├── __init__.py      # exposes main() lazily (no PySide6 on import)
+│       ├── __main__.py      # `python -m greencrypt.gui`
+│       ├── app.py           # MainWindow + QApplication bootstrap
+│       ├── main.ui          # Qt Designer source — SINGLE SOURCE OF TRUTH
+│       ├── main_ui.py       # generated by pyside6-uic — committed (see GUI notes)
+│       └── assets/          # logo.jpg (drop area) + icon.png/icon.ico (window icon)
+├── tools/
+│   ├── compile_ui.py        # regenerate / verify main_ui.py from main.ui
+│   └── build_appimage.py    # assemble the AppDir + build the AppImage
+├── packaging/
+│   ├── launcher.py          # frozen-app entry point (PyInstaller analysis root)
+│   ├── AppRun               # AppImage entry point -> usr/bin/greencrypt
+│   ├── Dockerfile           # portable build env (manylinux_2_34, glibc 2.34)
+│   └── greencrypt.desktop    # AppImage desktop entry (menu/icon integration)
+├── test_greencrypt.py       # self-contained test suite (30 tests)
+├── LICENSE.md               # full GPLv3 text
+└── pruebas/                 # legacy experiments — git-ignored, not part of the tool
 ```
+
+### How the pieces fit together
+
+```text
+greencrypt.cli  ─┐
+                 ├─►  greencrypt.core   (AES-256-EAX + .aes v1 + PBKDF2)
+greencrypt.gui  ─┘
+```
+
+Both front-ends import the **same** core, so the file format and the crypto can
+never drift apart between the CLI and the GUI.
 
 ## Testing
 
@@ -206,19 +299,137 @@ python test_greencrypt.py
 It covers key derivation, AAD build/parse, header/version handling, file & folder
 round-trips, binary integrity, `--delete`, unique output names and error paths.
 
-## GUI notes
+## Standalone build
 
-The interface is defined in Qt Designer XML (`gui/main.ui`). Before first run it must
-be **compiled** to Python:
+GreenCrypt can be frozen into a **self-contained bundle** (Python + PySide6/Qt +
+pycryptodomex + the app) so it runs on a machine **without** Python installed.
+The freezer is [PyInstaller](https://pyinstaller.org/), declared in the `package`
+dependency group:
 
 ```bash
-pyside6-uic gui/main.ui -o gui/main_ui.py
+pip install --group package -e .
+make standalone                 # -> dist/GreenCrypt/
 ```
 
-`gui/main_ui.py` is generated code and is **git-ignored** — never edit it by hand.
-If it is missing, GreenCrypt's launcher prints the exact command to run.
+`make standalone` runs `pyinstaller greencrypt.spec --noconfirm`. The result is a
+**onedir** bundle:
 
-Assets live in `gui/assets/`:
+```text
+dist/GreenCrypt/
+├── greencrypt          # the executable: no args -> GUI, args -> CLI
+└── _internal/          # Python runtime, Qt libs, Cryptodome, package data
+```
+
+Run it directly, or hand the whole folder to a user:
+
+```bash
+./dist/GreenCrypt/greencrypt                     # GUI
+./dist/GreenCrypt/greencrypt -e -p secret file   # CLI
+```
+
+Details worth knowing:
+
+- **Dispatch is preserved:** like the installed command, no arguments opens the
+  GUI and arguments run the CLI — so a single bundle serves both front-ends.
+- **Size:** ~180 MB, dominated by Qt. The spec **excludes** the heavyweight Qt
+  modules GreenCrypt never uses (`QtWebEngine`, `QtPdf`, `QtQuick`/Qml, Multimedia,
+  3D …); without those excludes a PySide6 bundle balloons past 600 MB.
+- **Portability (glibc):** the bundle links against the build machine's glibc.
+  A `make standalone` / `make appimage` on a modern host therefore only runs on
+  equally-modern distros. For a distributable AppImage use
+  [`make appimage-docker`](#portable-appimage-build-in-a-container), which freezes
+  the app inside a container with an **old** glibc. (glibc is forward-, not
+  backward-compatible.)
+
+### AppImage
+
+The `dist/GreenCrypt/` folder is then wrapped into a **single-file AppImage** —
+the "double-click and it just runs" artifact for Linux:
+
+```bash
+make appimage                                    # -> dist/GreenCrypt-x86_64.AppImage
+./dist/GreenCrypt-x86_64.AppImage                # GUI
+./dist/GreenCrypt-x86_64.AppImage -e -p pw file  # CLI
+```
+
+`make appimage` runs `python tools/build_appimage.py`, which:
+
+1. assembles an **AppDir** (`build/appimage/GreenCrypt.AppDir/`) from the frozen
+   bundle plus `packaging/AppRun`, `packaging/greencrypt.desktop` and the icon;
+2. downloads and **sha256/size-verifies** `appimagetool` with a timeout (cached
+   under `build/tools/`);
+3. compresses the AppDir into the AppImage (SquashFS/zstd): ~180 MB → **~64 MB**.
+
+Worth knowing:
+
+- **No installation.** An AppImage is a tiny runtime prepended to a SquashFS
+  image; at launch it mounts itself (FUSE) and executes `AppRun`. Nothing is
+  copied to the system.
+- **No FUSE / no `libfuse2`?** Run
+  `./GreenCrypt-x86_64.AppImage --appimage-extract-and-run` to self-extract
+  instead of mounting.
+- **Same dispatch:** no arguments → GUI (with menu/icon integration through the
+  bundled `.desktop` file); arguments → CLI.
+- To **distribute** it, build the portable variant below.
+
+### Portable AppImage (build in a container)
+
+`make appimage` freezes the **host's** interpreter, so the AppImage inherits the
+host's glibc. Building on a modern distro (e.g. Debian 13 / glibc 2.41) yields an
+AppImage that dies on older systems with:
+
+```text
+[PYI-...:ERROR] Failed to load Python shared library ...:
+  /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.38' not found
+```
+
+For distribution, freeze it inside the container instead:
+
+```bash
+make appimage-docker    # -> dist/GreenCrypt-x86_64.AppImage (portable)
+```
+
+`packaging/Dockerfile` uses **`manylinux_2_34`** (AlmaLinux 9, **glibc 2.34**).
+That is the *oldest floor PySide6 6.12 allows*: its wheel is `manylinux_2_34` and
+requires `GLIBCXX_3.4.29`, so glibc 2.28/2.31 bases cannot even install it.
+
+The resulting AppImage runs on:
+
+| Target | glibc |
+|--------|-------|
+| RHEL / Rocky / AlmaLinux 9+ | 2.34+ |
+| Ubuntu 22.04+ / Linux Mint 21+ | 2.35+ |
+| Debian 12+ | 2.36+ |
+| Fedora 35+ | 2.34+ |
+
+Notes:
+
+- Docker is required; the image is built once and cached (`greencrypt-build`).
+  The source tree is bind-mounted, so code changes do **not** require rebuilding it.
+- The base image is pinned by **sha256 digest** and the build pins CPython 3.12,
+  so the artifact is reproducible.
+- Need Ubuntu 20.04 / Debian 11 / RHEL 8 (glibc 2.28–2.31)? That requires an
+  **older PySide6** whose wheels are `manylinux_2_28` — a product decision
+  (older Qt), not a build tweak.
+
+## GUI notes
+
+The interface is defined in Qt Designer XML: `greencrypt/gui/main.ui` is the
+**single source of truth**. The Python module it compiles to
+(`greencrypt/gui/main_ui.py`) is **generated** but **committed on purpose**, so a
+fresh clone (and `pip install '.[gui]'`) works without running a compiler.
+
+Regenerate it **only after editing `main.ui`**, never by hand:
+
+```bash
+make ui          # = python tools/compile_ui.py
+make check-ui    # CI guard: exits non-zero if main_ui.py is stale
+```
+
+The `check-ui` target is designed for CI / pre-commit hooks, so a `main.ui`
+change can never be committed without its regenerated `main_ui.py`.
+
+Assets live in `greencrypt/gui/assets/`:
 
 - **`logo.jpg`** — shown inside the drop area.
 - **`icon.png`** — window / taskbar icon (also `icon.ico` for Windows packaging).

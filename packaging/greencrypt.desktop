@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=GreenCrypt
+GenericName=File Encryption
+Comment=Encrypt and decrypt files and folders with AES-256-EAX
+Exec=greencrypt
+Icon=greencrypt
+Terminal=false
+Categories=Utility;Security;
+Keywords=encryption;AES;crypt;security;password;
