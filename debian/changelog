@@ -1,3 +1,10 @@
+greencrypt (1.0.0-3) unstable; urgency=medium
+
+  * Keep the gbp export tree and the generated .deb/.changes inside the
+    repository, under build/deb/, instead of ../build-area/.
+
+ -- Marco Antonio Romero <marcoromero.dev@gmail.com>  Mon, 19 Oct 2026 23:41:30 -0300
+
 greencrypt (1.0.0-2) unstable; urgency=medium
 
   * Rewrite the installed desktop entry to use greencrypt-gui: the entry
